@@ -3,7 +3,7 @@ title: "SDS 322E Project: Myocardial Infarction Complications"
 author: Kishen Narayan, Kathleen Leever, Yuvraj Uddanti, Diya Sharma, Laura Nylykke,
   Nick Read, Sam Song
 date: "2022-10-11"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
