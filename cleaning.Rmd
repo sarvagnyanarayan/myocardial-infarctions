@@ -1,0 +1,147 @@
+---
+title: "cleaning"
+author: Kishen Narayan, Kathleen Leever, Yuvraj Uddanti, Diya Sharma, Laura Nylykke,
+  Nick Read, Sam Song
+date: "2022-11-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+
+library(tidyverse)
+
+## Data 
+MI <- read_csv("MI.csv")
+MIdf <- as.data.frame(MI)
+
+## 1700 Obs. of 124 Variables 
+
+## List of Variables 
+names(MI)
+
+
+## NA Analysis 
+
+## Total amount of NA's = 15974
+sum(is.na(MI))
+
+## Summary of all NA's by variable/column
+nas <- MIdf %>% summarize_all(funs(sum(is.na(.))))
+nas
+
+## Tidied NA's of input variables (Columns 2 - 112)
+nas_input_tidy <- gather(nas[2:112], cols, value) 
+nas_input_tidy
+
+## Many missing values for multiple columns 
+## Visualization 
+nas_input_tidy_1 <- nas_input_tidy[2:38, ]
+p1 <- ggplot(nas_input_tidy_1, aes(x = value, y = cols, fill = cols)) + geom_bar(stat = "identity", width = 0.9) + theme(axis.text.x = element_text(color = "black", size = 8), axis.line = element_line(color = "black"), legend.position = "none") + labs(title = "NA Count by Input Variables (Columns 2 through 38)") +   scale_x_continuous(limits = c(0,1700), expand = c(0, 0))
+
+p1
+
+nas_input_tidy_2 <- nas_input_tidy[39:75, ]
+p2 <- ggplot(nas_input_tidy_2, aes(x = value, y = cols, fill = cols)) + geom_bar(stat = "identity", width = 0.9) + theme(axis.text.x = element_text(color = "black", size = 8), axis.line = element_line(color = "black"), legend.position = "none") + labs(title = "NA Count by Input Variables (Columns 39 through 75)") +   scale_x_continuous(limits = c(0,1700), expand = c(0, 0))
+
+p2
+
+nas_input_tidy_3 <- nas_input_tidy[76:111, ]
+p3 <- ggplot(nas_input_tidy_3, aes(x = value, y = cols, fill = cols)) + geom_bar(stat = "identity", width = 0.9) + theme(axis.text.x = element_text(color = "black", size = 8), axis.line = element_line(color = "black"), legend.position = "none") + labs(title = "NA Count by Input Variables (Columns 76 through 111)") + scale_x_continuous(limits = c(0,1700), expand = c(0, 0))
+
+p3
+
+
+## Tidied NA's of output variables (Columns 113 - 124)
+nas_output_tidy <- gather(nas[113:124], cols, value) 
+nas_output_tidy
+
+## Note, none of the output variables (complications) had any NA's 
+
+## Proportion of NA observations for input variables 
+nas_input_tidy_prop <- nas_input_tidy
+nas_input_tidy_prop$value <- nas_input_tidy$value / 1700
+
+ggplot(nas_input_tidy_prop, aes(x = value, y = cols, fill = cols)) + geom_bar(stat = "identity") + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line = element_line(color = "black"), legend.position = "none") + geom_bar(data = nas_input_tidy_prop[(nas_input_tidy_prop$cols == "IBS_NASL"), ], stat = "identity", fill = "black") + geom_bar(data = nas_input_tidy_prop[(nas_input_tidy_prop$cols == "S_AD_KBRIG"), ], stat = "identity", fill = "black") + geom_bar(data = nas_input_tidy_prop[(nas_input_tidy_prop$cols == "S_AD_KBRIG"), ], stat = "identity", fill = "black") + geom_bar(data = nas_input_tidy_prop[(nas_input_tidy_prop$cols == "D_AD_KBRIG"), ], stat = "identity", fill = "black") + geom_bar(data = nas_input_tidy_prop[(nas_input_tidy_prop$cols == "KFK_BLOOD"), ], stat = "identity", fill = "black") + scale_x_continuous(limits = c(0,1), expand = c(0, 0)) + labs(title = "NA Proportion by Input Variables")
+
+## ROUND 1 
+
+## Columns with more than 50% NA's (will be dropped) - IBS_NASL, S_AD_KBRIG, D_AD_KBRIG, KFK_BLOOD
+colg50na <- nas_input_tidy_prop %>% filter(value > 0.50)
+v <- c("IBS_NASL", "S_AD_KBRIG", "D_AD_KBRIG", "KFK_BLOOD", "ID")
+
+## Dropped columns w/ more than 50% NA's + dropped ID
+MIdfr1 <- MI %>% select(-v) 
+
+## Summary of all NA's by variable/column after R1 
+nasMdfr1 <- MIdfr1 %>% summarize_all(funs(sum(is.na(.))))
+nasMdfr1
+
+## Total amount of NA's = 10498 after R1
+sum(is.na(MIdfr1))
+
+## ROUND 2 
+
+MIdfr2 <- MIdfr1
+
+## Real variable columns left - AGE (1), S_AD_ORIT (33), D_AD_ORIT (34), K_BLOOD (80), NA_BLOOD (82), ALT_BLOOD (83), AST_BLOOD (84), L_BLOOD (85), ROE (86)
+
+## Replacing real variable columns with mean of that column
+MIdfr2$AGE[is.na(MIdfr2$AGE)] <- mean(MIdfr2$AGE, na.rm = TRUE)
+MIdfr2$S_AD_ORIT[is.na(MIdfr2$S_AD_ORIT)] <- mean(MIdfr2$S_AD_ORIT, na.rm = TRUE)
+MIdfr2$D_AD_ORIT[is.na(MIdfr2$D_AD_ORIT)] <- mean(MIdfr2$D_AD_ORIT, na.rm = TRUE)
+MIdfr2$K_BLOOD[is.na(MIdfr2$K_BLOOD)] <- mean(MIdfr2$K_BLOOD, na.rm = TRUE)
+MIdfr2$NA_BLOOD[is.na(MIdfr2$NA_BLOOD)] <- mean(MIdfr2$NA_BLOOD, na.rm = TRUE)
+MIdfr2$ALT_BLOOD[is.na(MIdfr2$ALT_BLOOD)] <- mean(MIdfr2$ALT_BLOOD, na.rm = TRUE)
+MIdfr2$AST_BLOOD[is.na(MIdfr2$AST_BLOOD)] <- mean(MIdfr2$AST_BLOOD, na.rm = TRUE)
+MIdfr2$L_BLOOD[is.na(MIdfr2$L_BLOOD)] <- mean(MIdfr2$L_BLOOD, na.rm = TRUE)
+MIdfr2$ROE[is.na(MIdfr2$ROE)] <- mean(MIdfr2$ROE, na.rm = TRUE)
+
+## Total amount of NA's = 8313 after R2 
+sum(is.na(MIdfr2))
+
+## Summary of all NA's by variable/column after R2 
+nasMdfr2 <- MIdfr2 %>% summarize_all(funs(sum(is.na(.))))
+nasMdfr2
+
+## ROUND 3 
+
+MIdfr3 <- MIdfr2
+
+## Now to sort out the nominal and ordinal variables 
+
+mode <- function(x){
+  distinct <- na.omit(unique(x))
+  tab <- tabulate(match(x, distinct))
+  distinct[which.max(tab)]
+}
+
+MIdfr3 <- MIdfr3 %>% mutate(across(SEX:zab_leg_06, ~replace_na(., mode(.))))
+
+MIdfr3 <- MIdfr3 %>% mutate(across(O_L_POST:GIPO_K, ~replace_na(., mode(.))))
+
+MIdfr3$GIPER_NA[is.na(MIdfr3$GIPER_NA)] <- mode(MIdfr3$GIPER_NA)
+
+MIdfr3 <- MIdfr3 %>% mutate(across(TIME_B_S:TRENT_S_n, ~replace_na(., mode(.))))
+
+MIdfr3$NA_KB[is.na(MIdfr3$NA_KB)] <- mode(MIdfr3$NA_KB)
+
+MIdfr3$LID_KB[is.na(MIdfr3$LID_KB)] <- mode(MIdfr3$LID_KB)
+
+## Summary of all NA's by variable/column after R3 
+nasMdfr3 <- MIdfr3 %>% summarize_all(funs(sum(is.na(.))))
+nasMdfr3
+
+## Total amount of NA's = 0 after R3 
+sum(is.na(MIdfr3))
+
+## Data is clean! 
+
+MIclean <- MIdfr3
+
+write.csv(MIclean,"~/UT Classes/SDS322E/Final Project/MIclean.csv", row.names = FALSE)
+```
