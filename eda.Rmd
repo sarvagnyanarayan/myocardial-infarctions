@@ -1,0 +1,330 @@
+---
+title: "eda"
+author: Kishen Narayan, Kathleen Leever, Yuvraj Uddanti, Diya Sharma, Laura Nylykke,
+  Nick Read, Sam Song
+date: "2022-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(cluster)
+library(GGally)
+library(dplyr)
+
+## Exploratory Data Analysis - EDA 
+
+MIdata <- read_csv("MIclean.csv")
+df <- as.data.frame(MIdata)
+
+mode <- function(x){
+  distinct <- na.omit(unique(x))
+  tab <- tabulate(match(x, distinct))
+  distinct[which.max(tab)]
+}
+
+## 4 Most Prevalent Complications - Will be used for analysis/hypotheses 
+
+## Possible Complications
+complications <- c("FIBR_PREDS", "PREDS_TAH", "JELUD_TAH", "FIBR_JELUD", "A_V_BLOK", "OTEK_LANC", "RAZRIV", "DRESSLER", "ZSN", "REC_IM", "P_IM_STEN")
+
+## Tables showing amounts of 1's and 0's for each complication 
+table(df$FIBR_PREDS)
+table(df$PREDS_TAH)
+table(df$JELUD_TAH)
+table(df$FIBR_JELUD)
+table(df$A_V_BLOK)
+table(df$OTEK_LANC)
+table(df$RAZRIV)
+table(df$DRESSLER)
+table(df$ZSN)
+table(df$REC_IM)
+table(df$P_IM_STEN)
+
+## Amounts of 1's and 0's by complication
+amount1 <- c(170, 20, 42, 71, 57, 159, 54, 75, 394, 159, 148)
+amount0 <- 1700 - amount1
+
+## Proportions of 1's and 0's by complication
+frac1 <- amount1/(amount0 + amount1)
+frac0 <- amount0/(amount0 + amount1)
+
+## Amount and proportion of 1's by complication as data frames 
+data1 <- data_frame(complications, amount = amount1) 
+fracdata1 <- data_frame(complications, amount = frac1)
+
+## Amount and proportion of 0's by complication as data frames 
+data0 <- data_frame(complications, amount = amount0)
+fracdata0 <- data_frame(complications, amount = frac0)
+  
+## Plotting frequency of complications 
+p0 <- ggplot(data1, aes(x = reorder(complications, -amount), y = amount, fill = amount)) + geom_bar(stat = "identity") + xlab("Complications") + ylab("Frequency") + theme(axis.text.x = element_text(angle = 32, size = 8)) + ggtitle("Frequency of Complications") 
+p0
+
+## Plotting relative frequency of complications 
+p1 <- ggplot(fracdata1, aes(x = reorder(complications, -amount), y = amount, fill = amount)) + geom_bar(stat = "identity") + xlab("Complications") + ylab("Relative Frequency") + theme(axis.text.x = element_text(angle = 32, size = 8)) + ggtitle("Relative Frequency of Complications") + scale_fill_gradient(low="purple",high="blue")
+p1
+
+## From the figure it is clear to see the four most prevalent complications by counts are ZSN (Chronic Heart Failure), FIBR_PREDS (Atrial Fibrillation), OTEK_LANC (Pulmonary Edema), and REC_IM (Relapse of the Myocardial Infarction)  
+
+## These will be the four complications we will use for analysis 
+
+## Possible outcomes for LET_IS 
+t <- table(df$LET_IS)
+t
+
+outcomes <- c(0, 1, 2, 3, 4, 5, 6, 7)
+counts <- c(1429, 110, 18, 54, 23, 12, 27, 27)
+
+## Proportion of outcomes for LET_IS 
+propouts <- counts/(1700)
+
+letisdata <- data_frame(outcomes, counts)
+fracletisdata <- data_frame(outcomes, propouts)
+
+p2 <- ggplot(letisdata, aes(x = reorder(outcomes, -counts), y = counts, fill = counts)) + geom_bar(stat = "identity") + xlab("Outcomes for LET_IS") + ylab("Frequency") + ggtitle("Frequency of Outcomes for LET_IS") + scale_fill_gradient(low="orange",high="darkred")
+p2
+
+p3 <- ggplot(fracletisdata, aes(x = reorder(outcomes, -propouts), y = propouts, fill = propouts)) + geom_bar(stat = "identity") + xlab("Outcomes for LET_IS") + ylab("Relative Frequency") + ggtitle("Relative Frequency of Outcomes for LET_IS") + scale_fill_gradient(low="aquamarine2",high="springgreen3")
+p3
+
+## Correlation Matrices 
+
+## We are going to make a correlation matrix with the four identified most prevalent complications - ZSN, FIBR_PREDS, OTEK_LANC, and REC_IM - we will have to make a correlation matrix for these 4 columns at a time - if we did not do it this way, the correlation matrix would be a 111 x 111 grid or at best a 4 x 115 grid which would be unreadable - we can obtain the most correlated input variables with each one of the selected complications through a combination of looking at the heat maps and sorting the correlation matrices for each specific complication 
+
+dfcor <- df  %>% select(-PREDS_TAH, -JELUD_TAH, -FIBR_JELUD, -A_V_BLOK, -RAZRIV, -DRESSLER, -P_IM_STEN) 
+
+dfcor0 <- dfcor %>% select(1:4, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat0 <-  dfcor0 %>% cor()
+cordf0 <- cormat0 %>% as.data.frame %>% rownames_to_column("var1")
+cort0 <- cordf0 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort0 <- cort0 %>% mutate(values = round(correlation, digits = 2))
+cort0 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 1:4") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+                        
+dfcor1 <- dfcor %>% select(5:8, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat1 <-  dfcor1 %>% cor()
+cordf1 <- cormat1 %>% as.data.frame %>% rownames_to_column("var1")
+cort1 <- cordf1 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort1 <- cort1 %>% mutate(values = round(correlation, digits = 2))
+cort1 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 5:8") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor2 <- dfcor %>% select(9:12, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat2 <-  dfcor2 %>% cor()
+cordf2 <- cormat2 %>% as.data.frame %>% rownames_to_column("var1")
+cort2 <- cordf2 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort2 <- cort2 %>% mutate(values = round(correlation, digits = 2))
+cort2 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 9:12") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor3 <- dfcor %>% select(13:16, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat3 <-  dfcor3 %>% cor()
+cordf3 <- cormat3 %>% as.data.frame %>% rownames_to_column("var1")
+cort3 <- cordf3 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort3 <- cort3 %>% mutate(values = round(correlation, digits = 2))
+cort3 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 13:16") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor4 <- dfcor %>% select(17:20, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat4 <-  dfcor4 %>% cor()
+cordf4 <- cormat4 %>% as.data.frame %>% rownames_to_column("var1")
+cort4 <- cordf4 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort4 <- cort4 %>% mutate(values = round(correlation, digits = 2))
+cort4 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 17:20") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor5 <- dfcor %>% select(21:24, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat5 <-  dfcor5 %>% cor()
+cordf5 <- cormat5 %>% as.data.frame %>% rownames_to_column("var1")
+cort5 <- cordf5 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort5 <- cort5 %>% mutate(values = round(correlation, digits = 2))
+cort5 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 21:24") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor6 <- dfcor %>% select(25:28, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat6 <-  dfcor6 %>% cor()
+cordf6 <- cormat6 %>% as.data.frame %>% rownames_to_column("var1")
+cort6 <- cordf6 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort6 <- cort6 %>% mutate(values = round(correlation, digits = 2))
+cort6 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 25:28") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor7 <- dfcor %>% select(29:32, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat7 <-  dfcor7 %>% cor()
+cordf7 <- cormat7 %>% as.data.frame %>% rownames_to_column("var1")
+cort7 <- cordf7 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort7 <- cort7 %>% mutate(values = round(correlation, digits = 2))
+cort7 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 29:32") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor8 <- dfcor %>% select(33:36, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat8 <-  dfcor8 %>% cor()
+cordf8 <- cormat8 %>% as.data.frame %>% rownames_to_column("var1")
+cort8 <- cordf8 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort8 <- cort8 %>% mutate(values = round(correlation, digits = 2))
+cort8 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 33:36") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor9 <- dfcor %>% select(37:40, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat9 <-  dfcor9 %>% cor()
+cordf9 <- cormat9 %>% as.data.frame %>% rownames_to_column("var1")
+cort9 <- cordf9 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort9 <- cort9 %>% mutate(values = round(correlation, digits = 2))
+cort9 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 37:40") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+
+dfcor10 <- dfcor %>% select(41:44, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat10 <-  dfcor10 %>% cor()
+cordf10 <- cormat10 %>% as.data.frame %>% rownames_to_column("var1")
+cort10 <- cordf10 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort10 <- cort10 %>% mutate(values = round(correlation, digits = 2))
+cort10 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 41:44") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor11 <- dfcor %>% select(45:48, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat11 <-  dfcor11 %>% cor()
+cordf11 <- cormat11 %>% as.data.frame %>% rownames_to_column("var1")
+cort11 <- cordf11 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort11 <- cort11 %>% mutate(values = round(correlation, digits = 2))
+cort11 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 45:48") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor12 <- dfcor %>% select(49:52, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat12 <-  dfcor12 %>% cor()
+cordf12 <- cormat12 %>% as.data.frame %>% rownames_to_column("var1")
+cort12 <- cordf12 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort12 <- cort12 %>% mutate(values = round(correlation, digits = 2))
+cort12 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 49:52") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor13 <- dfcor %>% select(53:56, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat13 <-  dfcor13 %>% cor()
+cordf13 <- cormat13 %>% as.data.frame %>% rownames_to_column("var1")
+cort13 <- cordf13 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort13 <- cort13 %>% mutate(values = round(correlation, digits = 2))
+cort13 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 53:56") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor14 <- dfcor %>% select(57:60, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat14 <-  dfcor14 %>% cor()
+cordf14 <- cormat14 %>% as.data.frame %>% rownames_to_column("var1")
+cort14 <- cordf14 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort14 <- cort14 %>% mutate(values = round(correlation, digits = 2))
+cort14 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 57:60") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor15 <- dfcor %>% select(61:64, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat15 <-  dfcor15 %>% cor()
+cordf15 <- cormat15 %>% as.data.frame %>% rownames_to_column("var1")
+cort15 <- cordf15 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort15 <- cort15 %>% mutate(values = round(correlation, digits = 2))
+cort15 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 61:64") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor16 <- dfcor %>% select(65:68, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat16 <-  dfcor16 %>% cor()
+cordf16 <- cormat16 %>% as.data.frame %>% rownames_to_column("var1")
+cort16 <- cordf16 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort16 <- cort16 %>% mutate(values = round(correlation, digits = 2))
+cort16 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 65:68") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+
+dfcor17 <- dfcor %>% select(69:72, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat17 <-  dfcor17 %>% cor()
+cordf17 <- cormat17 %>% as.data.frame %>% rownames_to_column("var1")
+cort17 <- cordf17 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort17 <- cort17 %>% mutate(values = round(correlation, digits = 2))
+cort17 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 69:72") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor18 <- dfcor %>% select(73:76, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat18 <-  dfcor18 %>% cor()
+cordf18 <- cormat18 %>% as.data.frame %>% rownames_to_column("var1")
+cort18 <- cordf18 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort18 <- cort18 %>% mutate(values = round(correlation, digits = 2))
+cort18 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 73:76") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor19 <- dfcor %>% select(77:80, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat19 <-  dfcor19 %>% cor()
+cordf19 <- cormat19 %>% as.data.frame %>% rownames_to_column("var1")
+cort19 <- cordf19 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort19 <- cort19 %>% mutate(values = round(correlation, digits = 2))
+cort19 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 77:80") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor20 <- dfcor %>% select(81:84, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat20 <-  dfcor20 %>% cor()
+cordf20 <- cormat20 %>% as.data.frame %>% rownames_to_column("var1")
+cort20 <- cordf20 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort20 <- cort20 %>% mutate(values = round(correlation, digits = 2))
+cort20 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 81:84") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor21 <- dfcor %>% select(85:88, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat21 <-  dfcor21 %>% cor()
+cordf21 <- cormat21 %>% as.data.frame %>% rownames_to_column("var1")
+cort21 <- cordf21 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort21 <- cort21 %>% mutate(values = round(correlation, digits = 2))
+cort21 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 85:88") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor22 <- dfcor %>% select(89:92, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat22 <-  dfcor22 %>% cor()
+cordf22 <- cormat22 %>% as.data.frame %>% rownames_to_column("var1")
+cort22 <- cordf22 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort22 <- cort22 %>% mutate(values = round(correlation, digits = 2))
+cort22 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 89:92") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor23 <- dfcor %>% select(93:96, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM)
+cormat23 <-  dfcor23 %>% cor()
+cordf23 <- cormat23 %>% as.data.frame %>% rownames_to_column("var1")
+cort23 <- cordf23 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort23 <- cort23 %>% mutate(values = round(correlation, digits = 2))
+cort23 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 93:96") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor24 <- dfcor %>% select(97:100, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat24 <-  dfcor24 %>% cor()
+cordf24 <- cormat24 %>% as.data.frame %>% rownames_to_column("var1")
+cort24 <- cordf24 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort24 <- cort24 %>% mutate(values = round(correlation, digits = 2))
+cort24 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 97:100") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor25 <- dfcor %>% select(101:104, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat25 <-  dfcor25 %>% cor()
+cordf25 <- cormat25 %>% as.data.frame %>% rownames_to_column("var1")
+cort25 <- cordf25 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort25 <- cort25 %>% mutate(values = round(correlation, digits = 2))
+cort25 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 101:104") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+dfcor26 <- dfcor %>% select(105:107, ZSN, FIBR_PREDS, OTEK_LANC, REC_IM) 
+cormat26 <-  dfcor26 %>% cor()
+cordf26 <- cormat26 %>% as.data.frame %>% rownames_to_column("var1")
+cort26 <- cordf26 %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cort26 <- cort26 %>% mutate(values = round(correlation, digits = 2))
+cort26 %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications and Columns 105:107") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
+
+## Correlation matrix for all variables 
+cormat <-  dfcor %>% cor()
+cormat <- cormat %>% as.data.frame %>% rownames_to_column("var1") 
+cort <- cormat %>%
+pivot_longer(-1, names_to="var2", values_to = "correlation") 
+  
+## Find the most correlated variables - target variables for analysis 
+
+cortZSN <- cort %>% filter(var1 == "ZSN")
+
+## Most positively correlated input variable with ZSN - ZSN_A - 0.1693715
+## Most negatively correlated input variable with ZSN - SEX - -0.09749093
+
+cortFIBR_PREDS <- cort %>% filter(var1 == "FIBR_PREDS")
+
+## Most positively correlated input variable with FIBR_PREDS - n_r_ecg_p_05 - 0.2072312
+## Most negatively correlated input variable with FIBR_PREDS - SEX - -0.1033611
+
+cortOTEK_LANC <- cort %>% filter(var1 == "OTEK_LANC")
+
+## Most positively correlated input variable with OTEK_LANC - NITR_S - 0.3218104895
+## Most negatively correlated input variable with OTEK_LANC - ritm_ecg_p_01 - -0.0985181028
+
+cortREC_IM <- cort %>% filter(var1 == "REC_IM")
+
+## Most positively correlated input variable with REC_IM - R_AB_3_n - 0.1844414894
+## Most negatively correlated input variable with REC_IM - SEX - -0.0651864821
+
+## Break down by (sex) male and female and correlate with each complication to understand why there is a negative correlation 
+
+  
+## Plots for most correlated variable with each complication
+
+## ? Cluster Analysis ?
+
+## Hypotheses 
+
+  
+```
