@@ -11,14 +11,9 @@ Myocardial Infarction Complications
 ## Project Description
 
 Our project goals are to predict complications of Myocardial Infarctions
-(MI) based on information about the patient at the time of admission and
-on the third day of the hospital period.
+(MI) based on various patient attributes. 
 
-We explore four specific complications - atrial fibrilation, ventricular
-tachycardia, relapse of the myocardial infarction, and chronic heart
-failure. We will analyze these complications through selected input
-features. Our tentative plan is to classify what type of complication
-will arise from patient infomartion.
+We explore four specific complications - chronic heart failure, atrial fibrilation, pulmonary edema and relapse of the myocardial infarction. We will analyze these complications through selected input features. From this analysis, we build classification models for each complication and compare performance. 
 
 ## Link to Dataset
 
@@ -28,7 +23,7 @@ will arise from patient infomartion.
 
 The University of California at Irvine (UCI) maintains multiple datasets
 used for various ML tasks. The Myocardial Infarction Complications
-dataset was created by the University of Leicester. The dataset contains
+dataset was donated by the University of Leicester. The dataset contains
 different complications related to MI and measures a variety of inputs
 related to the patient upon admission to the hospital, the ends of the
 first, second and third days.The various complications include but are
