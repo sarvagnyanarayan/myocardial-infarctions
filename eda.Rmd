@@ -302,12 +302,15 @@ cortZSN <- cort %>% filter(var1 == "ZSN")
 ## Most positively correlated input variable with ZSN - ZSN_A - 0.1693715
 ## Most negatively correlated input variable with ZSN - SEX - -0.09749093
 
+
+
 cortFIBR_PREDS <- cort %>% filter(var1 == "FIBR_PREDS")
 
 ## Most positively correlated input variable with FIBR_PREDS - n_r_ecg_p_05 - 0.2072312
 ## Most negatively correlated input variable with FIBR_PREDS - SEX - -0.1033611
 
 cortOTEK_LANC <- cort %>% filter(var1 == "OTEK_LANC")
+
 
 ## Most positively correlated input variable with OTEK_LANC - NITR_S - 0.3218104895
 ## Most negatively correlated input variable with OTEK_LANC - ritm_ecg_p_01 - -0.0985181028
@@ -317,14 +320,76 @@ cortREC_IM <- cort %>% filter(var1 == "REC_IM")
 ## Most positively correlated input variable with REC_IM - R_AB_3_n - 0.1844414894
 ## Most negatively correlated input variable with REC_IM - SEX - -0.0651864821
 
-## Break down by (sex) male and female and correlate with each complication to understand why there is a negative correlation 
+## Dissimilarity Matrix & Hierarchical Clustering 116, 108, 113, 117 - Output columns
+dfimp <- df %>% select(10, 56, 94, 90)
 
+dist <- daisy(dfimp, metric = "gower")
+hic <- hclust(dist, method = "complete")
+plot(hic, labels=FALSE)
+rect.hclust(hic, k = 10, border = "blue")
+
+cluster<-cutree(hic, k=10)
+df <- cbind(df, as.numeric(cluster))
+
+## Break down by (sex) male and female and correlate with each complication to understand why there is a negative correlation 
+df <- df %>% select(-120)
+
+cormatclust <- df[108:119] %>% cor()
+cordfclust <- cormatclust %>% as.data.frame %>% rownames_to_column("var1")
+cortclust <- cordfclust %>% pivot_longer(-1, names_to="var2", values_to = "correlation") 
+cortclust <- cortclust %>% mutate(values = round(correlation, digits = 2))
+cortclust %>% ggplot(aes(x = var1, y = var2, fill = correlation)) + geom_tile() + scale_fill_gradient2(low = "orange", high = "red", limit = c(-1,1), space = "Lab", name="Pearson\nCorrelation") + theme(axis.text.x = element_text(angle = 10, size = 8), axis.text.y = element_text(size = 8)) + geom_text(aes(label = values)) + ggtitle("Correlation Heat Map for Selected Complications Clustered With Selected Input Data") +  scale_x_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE)) + scale_y_discrete(labels=c("FIBR_PREDS"=expression(bold(FIBR_PREDS)), "ZSN"=expression(bold(ZSN)), "OTEK_LANC"=expression(bold(OTEK_LANC)), "REC_IM"=expression(bold(REC_IM)), parse=TRUE))
   
+## k-means Clustering for selected input data and selected complications
+dfimp <- df %>% select(10, 56, 94, 90)
+
+dist <- daisy(dfimp, metric = "gower")
+hic <- hclust(dist, method = "complete")
+plot(hic, labels=FALSE)
+rect.hclust(hic, k = 10, border = "blue")
+
+cluster<-cutree(hic, k=10)
+df <- cbind(df, as.numeric(cluster))
+
+sil_width<-vector()
+clust_dat <- dfimp
+for(i in 2:10){
+  temp <- clust_dat %>% kmeans(i) 
+  sil <- silhouette(temp$cluster, dist(clust_dat)) 
+  sil_width[i]<-mean(sil[, 3]) 
+}
+
+# With this chart we found k=10 to be the best number of clusters
+ggplot() + geom_line(aes(x=1:10,y=sil_width)) + scale_x_continuous(name="k",breaks=1:10)
+
+#Clustering with kmeans algorithm and k=10
+kmeans1 <- clust_dat %>% kmeans(10)
+kmeansclust <- clust_dat %>% mutate(cluster=as.factor(kmeans1$cluster)) 
+dfout <- df %>% select(116, 108, 113, 117)
+dfout <- dfout %>% mutate(id=rownames(dfout))
+kmeansclust <- kmeansclust %>% mutate(id=rownames(kmeansclust))
+kmeansclust <-kmeansclust %>% left_join(dfout, by = "id")
+kmeansclust <- kmeansclust %>% select(-id)
+
 ## Plots for most correlated variable with each complication
 
-## ? Cluster Analysis ?
+ggplot(df, aes(x = ZSN_A, fill = as.factor(ZSN))) + geom_bar() + ggtitle("ZSN_A vs. ZSN")
+ggplot(df, aes(x = n_r_ecg_p_05, fill = as.factor(FIBR_PREDS))) + geom_bar() + ggtitle("n_r_ecg_p_05 vs. FIBR_PREDS")
+ggplot(df, aes(x = NITR_S, fill = as.factor(OTEK_LANC))) + geom_bar() + ggtitle("NITR_S vs. OTEK_LANC")
 
-## Hypotheses 
+ggplot(df, aes(x = R_AB_3_n, fill = as.factor(REC_IM))) + geom_bar() + ggtitle("R_AB_3_n vs. REC_IM")
+
+ggplot(df, aes(x = ZSN_A, fill = as.factor(ZSN))) + geom_bar(position = "fill") + ggtitle("ZSN_A vs. ZSN (Proportion)")
+
+ggplot(df, aes(x = n_r_ecg_p_05, fill = as.factor(FIBR_PREDS))) + geom_bar(position = "fill") + ggtitle("n_r_ecg_p_05 vs. FIBR_PREDS (Proportion)")
+
+ggplot(df, aes(x = NITR_S, fill = as.factor(OTEK_LANC))) + geom_bar(position = "fill") + ggtitle("NITR_S vs. OTEK_LANC (Proportion)")
+
+ggplot(df, aes(x = R_AB_3_n, fill = as.factor(REC_IM))) + geom_bar(position = "fill") + ggtitle("R_AB_3_n vs. REC_IM (Proportion)")
+
+
+
+
 
   
 ```
