@@ -13,7 +13,7 @@ Myocardial Infarction Complications
 Our project goals are to predict complications of Myocardial Infarctions
 (MI) based on various patient attributes. 
 
-We explore four specific complications - chronic heart failure, atrial fibrilation, pulmonary edema and relapse of the myocardial infarction. We will analyze these complications through selected input features. From this analysis, we build classification models for each complication and compare performance. 
+We explore four specific complications - chronic heart failure, atrial fibrillation, pulmonary edema and relapse of the myocardial infarction. We will analyze these complications through selected input features. From this analysis, we build classification models for each complication and compare performance. 
 
 ## Link to Dataset
 
